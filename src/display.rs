@@ -614,7 +614,10 @@ where
                 match iterate_concatentation(index, runtime, |item| {
                     parts.push(simple_expression_data_format(item, runtime, context, depth + 1))
                 }) {
-                    Ok(_) => parts.join(", "),
+                    Ok(_) => match depth > 0 {
+                        true => format!("({})", parts.join(", ")),
+                        false => parts.join(", ")
+                    } ,
                     Err(_) => format!("[Failed to format Concatenation at {}]", index),
                 }
             }
