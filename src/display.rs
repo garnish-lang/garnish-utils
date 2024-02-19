@@ -330,7 +330,11 @@ where
                 },
                 Err(_) => format!("[Addr {:?} is not a symbol value]", index),
             },
-            _ => raw_expression_data_format(index, data, context),
+            _ => format!(
+                "{} - {}",
+                raw_expression_data_format(index, data, context),
+                simple_expression_data_format(index, data, context, 0)
+            ),
         },
         Err(_) => format!("[No data found at addr {:?}]", index),
     }
@@ -434,7 +438,7 @@ where
                         s.push(c.to_string());
                     }
 
-                    format!("'{}'", s.join(""))
+                    format!("'{}'", s.join(" "))
                 }
                 ExpressionDataType::Range => {
                     let (start, end) = data.get_range(index).unwrap();
@@ -502,8 +506,10 @@ where
             },
             ExpressionDataType::Pair => match runtime.get_pair(index) {
                 Ok((left_addr, right_addr)) => {
-                    let left = simple_expression_data_format(left_addr, runtime, context, depth + 1);
-                    let right = simple_expression_data_format(right_addr, runtime, context, depth + 1);
+                    let left =
+                        simple_expression_data_format(left_addr, runtime, context, depth + 1);
+                    let right =
+                        simple_expression_data_format(right_addr, runtime, context, depth + 1);
                     format!("{} = {}", left, right)
                 }
                 Err(_) => format!("[Addr {:?} is not a Pair value]", index),
@@ -569,55 +575,58 @@ where
                 },
                 _ => "[Could not get range]".to_string(),
             },
-            ExpressionDataType::Slice => {
-                match runtime.get_slice(index) {
-                    Ok((value, range)) => {
-                        match runtime.get_range(range) {
-                            Ok((start, end)) => {
-                                match (runtime.get_number(start), runtime.get_number(end)) {
-                                    (Ok(start), Ok(end)) => {
-                                        match runtime.get_data_type(value) {
-                                            Ok(ExpressionDataType::List) => {
-                                                format_list(runtime, context, value, start, end.increment().unwrap_or(Data::Number::zero()), depth + 1)
-                                            }
-                                            Ok(ExpressionDataType::CharList) => format_char_list(
-                                                runtime,
-                                                context,
-                                                value,
-                                                start,
-                                                end.increment().unwrap_or(start),
-                                            ),
-                                            Ok(ExpressionDataType::ByteList) => format_byte_list(
-                                                runtime,
-                                                context,
-                                                value,
-                                                start,
-                                                end.increment().unwrap_or(start),
-                                            ),
-                                            Ok(t) => format!("[Invalid value for slice {:?}]", t),
-                                            Err(_) => format!("[Failed to get data type]"),
-                                        }
-                                    }
-                                    _ => "[Could not get start and end of range of slice]"
-                                        .to_string(),
-                                }
-                            }
-                            _ => "[Could not get range of slice]".to_string(),
+            ExpressionDataType::Slice => match runtime.get_slice(index) {
+                Ok((value, range)) => match runtime.get_range(range) {
+                    Ok((start, end)) => {
+                        match (runtime.get_number(start), runtime.get_number(end)) {
+                            (Ok(start), Ok(end)) => match runtime.get_data_type(value) {
+                                Ok(ExpressionDataType::List) => format_list(
+                                    runtime,
+                                    context,
+                                    value,
+                                    start,
+                                    end.increment().unwrap_or(Data::Number::zero()),
+                                    depth + 1,
+                                ),
+                                Ok(ExpressionDataType::CharList) => format_char_list(
+                                    runtime,
+                                    context,
+                                    value,
+                                    start,
+                                    end.increment().unwrap_or(start),
+                                ),
+                                Ok(ExpressionDataType::ByteList) => format_byte_list(
+                                    runtime,
+                                    context,
+                                    value,
+                                    start,
+                                    end.increment().unwrap_or(start),
+                                ),
+                                Ok(t) => format!("[Invalid value for slice {:?}]", t),
+                                Err(_) => format!("[Failed to get data type]"),
+                            },
+                            _ => "[Could not get start and end of range of slice]".to_string(),
                         }
                     }
-                    Err(_) => "[Failed to get slice]".to_string(),
-                }
-            }
+                    _ => "[Could not get range of slice]".to_string(),
+                },
+                Err(_) => "[Failed to get slice]".to_string(),
+            },
             ExpressionDataType::Concatenation => {
                 let mut parts = vec![];
 
                 match iterate_concatentation(index, runtime, |item| {
-                    parts.push(simple_expression_data_format(item, runtime, context, depth + 1))
+                    parts.push(simple_expression_data_format(
+                        item,
+                        runtime,
+                        context,
+                        depth + 1,
+                    ))
                 }) {
                     Ok(_) => match depth > 0 {
                         true => format!("({})", parts.join(", ")),
-                        false => parts.join(", ")
-                    } ,
+                        false => parts.join(", "),
+                    },
                     Err(_) => format!("[Failed to format Concatenation at {}]", index),
                 }
             }
@@ -675,9 +684,14 @@ where
     Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
 {
     let mut items = vec![];
-    let len = match runtime.get_char_list_len(list_addr) {
+    let len = match runtime.get_byte_list_len(list_addr) {
         Ok(v) => v,
-        Err(_) => return format!("[Could not get len of byte list at {}]", list_addr),
+        Err(e) => {
+            return format!(
+                "[Could not get len of byte list at {} - {:?}]",
+                list_addr, e
+            )
+        }
     };
 
     for i in Data::make_number_iterator_range(start, end) {
@@ -728,8 +742,8 @@ where
         true => String::from("(,)"),
         false => match depth > 0 {
             true => format!("({})", items.join(", ")),
-            false => format!("{}", items.join(", "))
-        }
+            false => format!("{}", items.join(", ")),
+        },
     }
 }
 
