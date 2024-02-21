@@ -87,6 +87,9 @@ where
                     Instruction::Not => {
                         format_unary_prefix_register("!!", runtime.get_data(), context)
                     }
+                    Instruction::Tis => {
+                        format_unary_prefix_register("??", runtime.get_data(), context)
+                    }
                     Instruction::EmptyApply => {
                         format_unary_suffix_register("~~", runtime.get_data(), context)
                     }
