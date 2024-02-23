@@ -1,5 +1,5 @@
 use crate::display::{simple_expression_data_format, DataInfoProvider};
-use garnish_traits::{
+use garnish_lang_traits::{
     GarnishLangRuntimeContext, GarnishLangRuntimeData, GarnishLangRuntimeState, GarnishRuntime,
     Instruction, TypeConstants,
 };

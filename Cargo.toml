@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 garnish_lang_compiler = { path = "../garnish-core/compiler"}
-garnish_traits = { path = "../garnish-core/traits"}
+garnish_lang_traits = { path = "../garnish-core/traits"}

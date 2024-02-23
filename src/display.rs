@@ -1,7 +1,7 @@
 use crate::iterate_concatentation;
 use garnish_lang_compiler::error::CompilerError;
 use garnish_lang_compiler::{InstructionMetadata, LexerToken, ParseResult};
-use garnish_traits::{
+use garnish_lang_traits::{
     ExpressionDataType, GarnishLangRuntimeContext, GarnishLangRuntimeData, GarnishNumber,
     Instruction, TypeConstants,
 };

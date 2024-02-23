@@ -1,4 +1,4 @@
-use garnish_traits::{GarnishLangRuntimeData, ExpressionDataType};
+use garnish_lang_traits::{GarnishLangRuntimeData, ExpressionDataType};
 
 pub fn iterate_concatentation<
     Data: GarnishLangRuntimeData,
