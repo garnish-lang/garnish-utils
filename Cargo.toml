@@ -1,10 +1,17 @@
 [package]
-name = "garnish_utils"
-version = "0.1.0"
+name = "garnish_lang_utilities"
+description = "Helper functions for use with garnish core libraries."
+version = "0.2.0"
+authors = ["Chad Collins <chad.collins@capitalone.com>"]
 edition = "2021"
+homepage = "https://github.com/garnish-lang/garnish-utils"
+documentation = "https://github.com/garnish-lang/garnish-utils"
+repository = "https://github.com/garnish-lang/garnish-utils"
+license-file = "./LICENSE"
+readme = "./README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-garnish_lang_compiler = { path = "../garnish-core/compiler"}
-garnish_lang_traits = { path = "../garnish-core/traits"}
+garnish_lang_compiler = { version = "0.0.2-alpha", path = "../garnish-core/compiler"}
+garnish_lang_traits = { version = "0.0.2-alpha", path = "../garnish-core/traits"}
