@@ -1,6 +1,6 @@
 use crate::display::{simple_expression_data_format, DataInfoProvider};
 use garnish_lang_traits::{
-    GarnishLangRuntimeContext, GarnishLangRuntimeData, GarnishLangRuntimeState, GarnishRuntime,
+    GarnishContext, GarnishData, GarnishLangRuntimeState, GarnishRuntime,
     Instruction, TypeConstants,
 };
 
@@ -9,9 +9,9 @@ pub fn create_execution_dump<Runtime, Data, Context>(
     context: &mut Context,
 ) -> String
 where
-    Data: GarnishLangRuntimeData,
+    Data: GarnishData,
     Runtime: GarnishRuntime<Data>,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
 {
     let mut lines = vec![];
 
@@ -287,8 +287,8 @@ where
 
 fn format_unary_prefix_register<Data, Context>(op: &str, data: &Data, context: &Context) -> String
 where
-    Data: GarnishLangRuntimeData,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Data: GarnishData,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
 {
     let n = data
         .get_register_iter()
@@ -304,8 +304,8 @@ where
 
 fn format_unary_suffix_register<Data, Context>(op: &str, data: &Data, context: &Context) -> String
 where
-    Data: GarnishLangRuntimeData,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Data: GarnishData,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
 {
     let n = data
         .get_register_iter()
@@ -321,8 +321,8 @@ where
 
 fn format_top_two_registers<Data, Context>(sep: &str, data: &Data, context: &Context) -> String
 where
-    Data: GarnishLangRuntimeData,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Data: GarnishData,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
 {
     let mut register_iterator = data.get_register_iter().rev();
     let right = register_iterator.next().unwrap_or(Data::Size::zero());
@@ -342,8 +342,8 @@ fn format_register<Data, Context>(
     context: &Context,
 ) -> String
 where
-    Data: GarnishLangRuntimeData,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Data: GarnishData,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
 {
     format_register_depth(index_opt, data, context, 0)
 }
@@ -355,8 +355,8 @@ fn format_register_depth<Data, Context>(
     depth: usize,
 ) -> String
 where
-    Data: GarnishLangRuntimeData,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Data: GarnishData,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
 {
     match index_opt {
         None => format!("[No data in register]",),

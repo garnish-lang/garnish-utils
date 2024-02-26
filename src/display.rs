@@ -2,14 +2,14 @@ use crate::iterate_concatentation;
 use garnish_lang_compiler::error::CompilerError;
 use garnish_lang_compiler::{InstructionMetadata, LexerToken, ParseResult};
 use garnish_lang_traits::{
-    ExpressionDataType, GarnishLangRuntimeContext, GarnishLangRuntimeData, GarnishNumber,
+    GarnishDataType, GarnishContext, GarnishData, GarnishNumber,
     Instruction, TypeConstants,
 };
 
 #[derive(Debug, Clone)]
 pub struct BuildMetadata<Data>
 where
-    Data: GarnishLangRuntimeData,
+    Data: GarnishData,
 {
     name: String,
     build_root: Data::Size,
@@ -23,7 +23,7 @@ where
 
 impl<Data> BuildMetadata<Data>
 where
-    Data: GarnishLangRuntimeData,
+    Data: GarnishData,
 {
     pub fn new(
         name: String,
@@ -95,7 +95,7 @@ where
 
 pub trait DataInfoProvider<Data>
 where
-    Data: GarnishLangRuntimeData,
+    Data: GarnishData,
 {
     fn get_symbol_name(&self, _sym: Data::Symbol, _data: &Data) -> Option<String> {
         None
@@ -117,8 +117,8 @@ pub fn format_runtime<Data, Context>(
     metadata: &Vec<BuildMetadata<Data>>,
 ) -> String
 where
-    Data: GarnishLangRuntimeData,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Data: GarnishData,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
     Data::Size: Into<usize>,
 {
     let mut lines = vec![];
@@ -272,8 +272,8 @@ fn instruction_is_start_of_expression<Data, Context>(
     context: &Context,
 ) -> (bool, String)
 where
-    Data: GarnishLangRuntimeData,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Data: GarnishData,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
 {
     let found = data
         .get_jump_table_iter()
@@ -297,12 +297,12 @@ pub fn complex_expression_data_format<Data, Context>(
     context: &Context,
 ) -> String
 where
-    Data: GarnishLangRuntimeData,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Data: GarnishData,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
 {
     match data.get_data_type(index) {
         Ok(t) => match t {
-            ExpressionDataType::Expression => match data.get_expression(index) {
+            GarnishDataType::Expression => match data.get_expression(index) {
                 Ok(value) => {
                     let jump_point = match data.get_jump_point(value) {
                         None => format!("[No jump point in table at {}]", value),
@@ -320,7 +320,7 @@ where
                 }
                 Err(_) => format!("[Addr {:?} is not Expression data]", index),
             },
-            ExpressionDataType::Symbol => match data.get_symbol(index) {
+            GarnishDataType::Symbol => match data.get_symbol(index) {
                 Ok(value) => match context.format_symbol_data(value, data) {
                     None => match context.get_symbol_name(value, data) {
                         None => raw_expression_data_format(index, data, context),
@@ -346,39 +346,39 @@ pub fn raw_expression_data_format<Data, Context>(
     context: &Context,
 ) -> String
 where
-    Data: GarnishLangRuntimeData,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Data: GarnishData,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
 {
     match data.get_data_type(index) {
         Err(_) => format!("[No data found at addr {:?}]", index),
         Ok(t) => {
             let value_str = match data.get_data_type(index).unwrap() {
-                ExpressionDataType::Invalid => String::from("[Addr {:?} is Invalid]"),
-                ExpressionDataType::Custom => context
+                GarnishDataType::Invalid => String::from("[Addr {:?} is Invalid]"),
+                GarnishDataType::Custom => context
                     .format_custom_data(index, data)
                     .unwrap_or(String::from("[No display for Custom data]")),
-                ExpressionDataType::Type => match data.get_type(index) {
+                GarnishDataType::Type => match data.get_type(index) {
                     Ok(v) => format!("{:?}", v),
                     Err(_) => format!("[Addr {:?} is not a Type value]", index),
                 },
-                ExpressionDataType::Unit => format!(""),
-                ExpressionDataType::True => format!(""),
-                ExpressionDataType::False => format!(""),
-                ExpressionDataType::Number => match data.get_number(index) {
+                GarnishDataType::Unit => format!(""),
+                GarnishDataType::True => format!(""),
+                GarnishDataType::False => format!(""),
+                GarnishDataType::Number => match data.get_number(index) {
                     Ok(v) => format!("{:?}", v),
                     Err(_) => format!("[Addr {:?} is not an integer value]", index),
                 },
-                ExpressionDataType::Symbol => match data.get_symbol(index) {
+                GarnishDataType::Symbol => match data.get_symbol(index) {
                     Ok(value) => format!("{}", value),
                     Err(_) => format!("[Addr {:?} is not a Symbol value]", index),
                 },
-                ExpressionDataType::Pair => match data.get_pair(index) {
+                GarnishDataType::Pair => match data.get_pair(index) {
                     Ok(value) => {
                         format!("{:?}", value)
                     }
                     Err(_) => format!("[Addr {:?} is not a Pair value]", index),
                 },
-                ExpressionDataType::List => {
+                GarnishDataType::List => {
                     let mut items = vec![];
                     let mut associations = vec![];
 
@@ -410,16 +410,16 @@ where
                         associations.join(",")
                     )
                 }
-                ExpressionDataType::Expression => {
+                GarnishDataType::Expression => {
                     format!("{:?}", data.get_expression(index).unwrap())
                 }
-                ExpressionDataType::External => {
+                GarnishDataType::External => {
                     format!("{:?}", data.get_external(index).unwrap())
                 }
-                ExpressionDataType::Char => {
+                GarnishDataType::Char => {
                     format!("{:?}", data.get_char(index).unwrap())
                 }
-                ExpressionDataType::CharList => {
+                GarnishDataType::CharList => {
                     let mut items = vec![];
                     for i in data.get_char_list_iter(index) {
                         let c = data.get_char_list_item(index, i).unwrap();
@@ -428,10 +428,10 @@ where
 
                     format!("{:?}", items.join(""))
                 }
-                ExpressionDataType::Byte => {
+                GarnishDataType::Byte => {
                     format!("{:?}", data.get_char(index).unwrap())
                 }
-                ExpressionDataType::ByteList => {
+                GarnishDataType::ByteList => {
                     let mut s = vec![];
                     for i in data.get_byte_list_iter(index) {
                         let c = data.get_byte_list_item(index, i).unwrap();
@@ -440,15 +440,15 @@ where
 
                     format!("'{}'", s.join(" "))
                 }
-                ExpressionDataType::Range => {
+                GarnishDataType::Range => {
                     let (start, end) = data.get_range(index).unwrap();
                     format!("{:?}..{:?}", start, end)
                 }
-                ExpressionDataType::Slice => {
+                GarnishDataType::Slice => {
                     let (start, end) = data.get_slice(index).unwrap();
                     format!("{:?}..{:?}", start, end)
                 }
-                ExpressionDataType::Concatenation => {
+                GarnishDataType::Concatenation => {
                     let mut parts = vec![];
 
                     match iterate_concatentation(index, data, |item| {
@@ -476,35 +476,35 @@ pub fn simple_expression_data_format<Data, Context>(
     depth: usize,
 ) -> String
 where
-    Data: GarnishLangRuntimeData,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Data: GarnishData,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
 {
     match runtime.get_data_type(index) {
         Err(_) => format!("[No data found at addr {:?}]", index),
         Ok(t) => match t {
-            ExpressionDataType::Invalid => format!("[Data at {} is Invalid]", index),
-            ExpressionDataType::Custom => context
+            GarnishDataType::Invalid => format!("[Data at {} is Invalid]", index),
+            GarnishDataType::Custom => context
                 .format_custom_data(index, runtime)
                 .unwrap_or(String::from("[No display for Custom data]")),
             // match runtime
-            ExpressionDataType::Type => match runtime.get_type(index) {
+            GarnishDataType::Type => match runtime.get_type(index) {
                 Ok(v) => format!("{:?}", v),
                 Err(_) => format!("[Addr {:?} is not a Type value]", index),
             },
-            ExpressionDataType::Unit => format!("()"),
-            ExpressionDataType::True => format!("True"),
-            ExpressionDataType::False => format!("False"),
-            ExpressionDataType::Number => match runtime.get_number(index) {
+            GarnishDataType::Unit => format!("()"),
+            GarnishDataType::True => format!("True"),
+            GarnishDataType::False => format!("False"),
+            GarnishDataType::Number => match runtime.get_number(index) {
                 Ok(v) => format!("{}", v),
                 Err(_) => format!("[Addr {:?} is not an integer value]", index),
             },
-            ExpressionDataType::Symbol => match runtime.get_symbol(index) {
+            GarnishDataType::Symbol => match runtime.get_symbol(index) {
                 Ok(value) => context
                     .get_symbol_name(value, runtime)
                     .unwrap_or(format!("[No name for Symbol {}]", value)),
                 Err(_) => format!("[Addr {:?} is not a Symbol value]", index),
             },
-            ExpressionDataType::Pair => match runtime.get_pair(index) {
+            GarnishDataType::Pair => match runtime.get_pair(index) {
                 Ok((left_addr, right_addr)) => {
                     let left =
                         simple_expression_data_format(left_addr, runtime, context, depth + 1);
@@ -514,7 +514,7 @@ where
                 }
                 Err(_) => format!("[Addr {:?} is not a Pair value]", index),
             },
-            ExpressionDataType::List => match runtime.get_list_len(index) {
+            GarnishDataType::List => match runtime.get_list_len(index) {
                 Ok(item_len) => format_list(
                     runtime,
                     context,
@@ -525,7 +525,7 @@ where
                 ),
                 _ => format!("[Addr {:?} is not a List value]", index),
             },
-            ExpressionDataType::Expression => match runtime.get_expression(index) {
+            GarnishDataType::Expression => match runtime.get_expression(index) {
                 Err(_) => format!("[Addr {:?} is not an Expression value]", index),
                 Ok(addr) => runtime
                     .get_jump_point(addr)
@@ -536,14 +536,14 @@ where
                     })
                     .unwrap_or(format!("[No jump point at index {}]", addr)),
             },
-            ExpressionDataType::External => match runtime.get_external(index) {
+            GarnishDataType::External => match runtime.get_external(index) {
                 Err(_) => format!("[Addr {:?} is not an External value]", index),
                 Ok(addr) => format!("{{external - {}}}", addr),
             },
-            ExpressionDataType::Char => {
+            GarnishDataType::Char => {
                 format!("{:?}", runtime.get_char(index).unwrap())
             }
-            ExpressionDataType::CharList => match runtime.get_char_list_len(index) {
+            GarnishDataType::CharList => match runtime.get_char_list_len(index) {
                 Ok(len) => format_char_list(
                     runtime,
                     context,
@@ -553,10 +553,10 @@ where
                 ),
                 Err(_) => "[Could not get len of CharList]".to_string(),
             },
-            ExpressionDataType::Byte => {
+            GarnishDataType::Byte => {
                 format!("{:?}", runtime.get_byte(index).unwrap())
             }
-            ExpressionDataType::ByteList => match runtime.get_byte_list_len(index) {
+            GarnishDataType::ByteList => match runtime.get_byte_list_len(index) {
                 Ok(len) => format_byte_list(
                     runtime,
                     context,
@@ -566,7 +566,7 @@ where
                 ),
                 Err(_) => "[Could not get length of ByteList]".to_string(),
             },
-            ExpressionDataType::Range => match runtime.get_range(index) {
+            GarnishDataType::Range => match runtime.get_range(index) {
                 Ok((start, end)) => match (runtime.get_number(start), runtime.get_number(end)) {
                     (Ok(start), Ok(end)) => {
                         format!("{:?}..{:?}", start, end)
@@ -575,12 +575,12 @@ where
                 },
                 _ => "[Could not get range]".to_string(),
             },
-            ExpressionDataType::Slice => match runtime.get_slice(index) {
+            GarnishDataType::Slice => match runtime.get_slice(index) {
                 Ok((value, range)) => match runtime.get_range(range) {
                     Ok((start, end)) => {
                         match (runtime.get_number(start), runtime.get_number(end)) {
                             (Ok(start), Ok(end)) => match runtime.get_data_type(value) {
-                                Ok(ExpressionDataType::List) => format_list(
+                                Ok(GarnishDataType::List) => format_list(
                                     runtime,
                                     context,
                                     value,
@@ -588,14 +588,14 @@ where
                                     end.increment().unwrap_or(Data::Number::zero()),
                                     depth + 1,
                                 ),
-                                Ok(ExpressionDataType::CharList) => format_char_list(
+                                Ok(GarnishDataType::CharList) => format_char_list(
                                     runtime,
                                     context,
                                     value,
                                     start,
                                     end.increment().unwrap_or(start),
                                 ),
-                                Ok(ExpressionDataType::ByteList) => format_byte_list(
+                                Ok(GarnishDataType::ByteList) => format_byte_list(
                                     runtime,
                                     context,
                                     value,
@@ -612,7 +612,7 @@ where
                 },
                 Err(_) => "[Failed to get slice]".to_string(),
             },
-            ExpressionDataType::Concatenation => {
+            GarnishDataType::Concatenation => {
                 let mut parts = vec![];
 
                 match iterate_concatentation(index, runtime, |item| {
@@ -642,8 +642,8 @@ pub fn format_char_list<Data, Context>(
     end: Data::Number,
 ) -> String
 where
-    Data: GarnishLangRuntimeData,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Data: GarnishData,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
 {
     let mut items = vec![];
     let len = match runtime.get_char_list_len(list_addr) {
@@ -680,8 +680,8 @@ pub fn format_byte_list<Data, Context>(
     end: Data::Number,
 ) -> String
 where
-    Data: GarnishLangRuntimeData,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Data: GarnishData,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
 {
     let mut items = vec![];
     let len = match runtime.get_byte_list_len(list_addr) {
@@ -715,8 +715,8 @@ pub fn format_list<Data, Context>(
     depth: usize,
 ) -> String
 where
-    Data: GarnishLangRuntimeData,
-    Context: GarnishLangRuntimeContext<Data> + DataInfoProvider<Data>,
+    Data: GarnishData,
+    Context: GarnishContext<Data> + DataInfoProvider<Data>,
 {
     let mut items = vec![];
 
@@ -749,7 +749,7 @@ where
 
 pub fn format_build_info<Data>(build_info: &BuildMetadata<Data>) -> String
 where
-    Data: GarnishLangRuntimeData,
+    Data: GarnishData,
 {
     let title = format!(
         "------- Build Info - {} -------------------------------------\n-------------------------------------------------------------",
@@ -867,7 +867,7 @@ pub fn format_parse_result(result: &ParseResult) -> String {
 
 // metadata tuple
 // (token string, line, column)
-pub fn compile_metadata<Data: GarnishLangRuntimeData>(
+pub fn compile_metadata<Data: GarnishData>(
     builds: &Vec<BuildMetadata<Data>>,
 ) -> Vec<Option<(String, LexerToken)>> {
     // Simple data starts with end execution instruction

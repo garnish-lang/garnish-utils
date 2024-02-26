@@ -1,7 +1,7 @@
-use garnish_lang_traits::{GarnishLangRuntimeData, ExpressionDataType};
+use garnish_lang_traits::{GarnishData, GarnishDataType};
 
 pub fn iterate_concatentation<
-    Data: GarnishLangRuntimeData,
+    Data: GarnishData,
     ItemFn: FnMut(Data::Size)
 >(
     concat_index: Data::Size,
@@ -16,12 +16,12 @@ pub fn iterate_concatentation<
 
     while let Some(addr) = stack.pop() {
         match data.get_data_type(addr)? {
-            ExpressionDataType::Concatenation => {
+            GarnishDataType::Concatenation => {
                 let (current, next) = data.get_concatenation(addr)?;
                 stack.push(next);
                 stack.push(current);
             }
-            ExpressionDataType::List => {
+            GarnishDataType::List => {
                 let list_iter = data.get_list_items_iter(addr);
 
                 for i in list_iter {
