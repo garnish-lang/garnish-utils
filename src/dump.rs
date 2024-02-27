@@ -1,6 +1,6 @@
 use crate::display::{simple_expression_data_format, DataInfoProvider};
 use garnish_lang_traits::{
-    GarnishContext, GarnishData, GarnishLangRuntimeState, GarnishRuntime,
+    GarnishContext, GarnishData, GarnishRuntime,
     Instruction, TypeConstants,
 };
 
@@ -239,34 +239,34 @@ where
 
         lines.push(line);
 
-        match runtime.execute_current_instruction(Some(context)) {
-            Err(e) => {
-                lines.push(format!("[Error: {}]", e));
-                return lines.join("\n");
-            }
-            Ok(data) => match data.get_state() {
-                GarnishLangRuntimeState::Running => (),
-                GarnishLangRuntimeState::End => {
-                    let result_line = runtime
-                        .get_data()
-                        .get_current_value()
-                        .and_then(|i| {
-                            Some(simple_expression_data_format(
-                                i,
-                                runtime.get_data(),
-                                context,
-                                0,
-                            ))
-                        })
-                        .unwrap_or(format!("[No resulting value]"));
-
-                    lines.push(format!("=== Execution Ended Successfully ==="));
-                    lines.push(result_line);
-
-                    return lines.join("\n")
-                },
-            },
-        }
+        // match runtime.execute_current_instruction(Some(context)) {
+        //     Err(e) => {
+        //         lines.push(format!("[Error: {}]", e));
+        //         return lines.join("\n");
+        //     }
+        //     Ok(data) => match data.get_state() {
+        //         GarnishLangRuntimeState::Running => (),
+        //         SimpleRun::End => {
+        //             let result_line = runtime
+        //                 .get_data()
+        //                 .get_current_value()
+        //                 .and_then(|i| {
+        //                     Some(simple_expression_data_format(
+        //                         i,
+        //                         runtime.get_data(),
+        //                         context,
+        //                         0,
+        //                     ))
+        //                 })
+        //                 .unwrap_or(format!("[No resulting value]"));
+        //
+        //             lines.push(format!("=== Execution Ended Successfully ==="));
+        //             lines.push(result_line);
+        //
+        //             return lines.join("\n")
+        //         },
+        //     },
+        // }
 
         let register_info = runtime
             .get_data()
