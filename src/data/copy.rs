@@ -37,7 +37,12 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
             to.end_byte_list()
         }
         GarnishDataType::Symbol => to.add_symbol(from.get_symbol(data_addr)?),
-        GarnishDataType::Pair => todo!(),
+        GarnishDataType::Pair => from.get_pair(data_addr)
+            .and_then(|(left, right)| {
+                let to_left = copy_data_at_to_data(left, from , to)?;
+                let to_right = copy_data_at_to_data(right, from, to)?;
+                to.add_pair((to_left, to_right))
+            }),
         GarnishDataType::Range => from
             .get_range(data_addr)
             .and_then(|(s, e)| to.add_range(s, e)),
@@ -244,5 +249,25 @@ mod tests {
 
         assert_eq!(new_addr, 6);
         assert_eq!(to.get_data().get(6).unwrap().as_symbol().unwrap(), 100);
+    }
+
+    #[test]
+    fn copy_pair() {
+        let mut from = SimpleGarnishData::new();
+        let d1 = from.add_symbol(100).unwrap();
+        let d2 = from.add_number(SimpleNumber::Integer(200)).unwrap();
+        let d3 = from.add_pair((d1, d2)).unwrap();
+
+        let mut to = SimpleGarnishData::new();
+        to.add_number(SimpleNumber::Integer(10)).unwrap();
+        to.add_number(SimpleNumber::Integer(20)).unwrap();
+        to.add_number(SimpleNumber::Integer(30)).unwrap();
+
+        let new_addr = copy_data_at_to_data(d3, &from, &mut to).unwrap();
+
+        assert_eq!(new_addr, 8);
+        assert_eq!(to.get_data().get(8).unwrap().as_pair().unwrap(), (6, 7));
+        assert_eq!(to.get_data().get(6).unwrap().as_symbol().unwrap(), 100);
+        assert_eq!(to.get_data().get(7).unwrap().as_number().unwrap(), SimpleNumber::Integer(200));
     }
 }
