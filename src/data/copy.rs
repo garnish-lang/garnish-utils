@@ -53,7 +53,7 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
         GarnishDataType::Slice => todo!(),
         GarnishDataType::List => todo!(),
         GarnishDataType::Expression => todo!(),
-        GarnishDataType::External => todo!(),
+        GarnishDataType::External => to.add_external(from.get_external(data_addr)?),
         GarnishDataType::True => to.add_true(),
         GarnishDataType::False => to.add_false(),
     }
@@ -62,7 +62,7 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
 #[cfg(test)]
 mod tests {
     use crate::data::copy_data_at_to_data;
-    use garnish_lang_simple_data::{NoCustom, SimpleGarnishData, SimpleNumber};
+    use garnish_lang_simple_data::{SimpleGarnishData, SimpleNumber};
     use garnish_lang_traits::{GarnishData, GarnishDataType};
 
     #[test]
@@ -251,6 +251,22 @@ mod tests {
 
         assert_eq!(new_addr, 6);
         assert_eq!(to.get_data().get(6).unwrap().as_symbol().unwrap(), 100);
+    }
+
+    #[test]
+    fn copy_external() {
+        let mut from = SimpleGarnishData::new();
+        let addr = from.add_external(100).unwrap();
+
+        let mut to = SimpleGarnishData::new();
+        to.add_number(SimpleNumber::Integer(10)).unwrap();
+        to.add_number(SimpleNumber::Integer(20)).unwrap();
+        to.add_number(SimpleNumber::Integer(30)).unwrap();
+
+        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+
+        assert_eq!(new_addr, 6);
+        assert_eq!(to.get_data().get(6).unwrap().as_external().unwrap(), 100);
     }
 
     #[test]
