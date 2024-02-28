@@ -9,6 +9,9 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
         GarnishDataType::Invalid => {
             unimplemented!("GarnishDataType::Invalid not supported to copy between data objects.")
         }
+        GarnishDataType::Custom => {
+            unimplemented!("GarnishDataType::Custom not supported to copy between data objects.")
+        }
         GarnishDataType::Unit => to.add_unit(),
         GarnishDataType::Number => to.add_number(from.get_number(data_addr)?),
         GarnishDataType::Type => to.add_type(from.get_type(data_addr)?),
@@ -53,14 +56,13 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
         GarnishDataType::External => todo!(),
         GarnishDataType::True => to.add_true(),
         GarnishDataType::False => to.add_false(),
-        GarnishDataType::Custom => todo!(),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::data::copy_data_at_to_data;
-    use garnish_lang_simple_data::{SimpleGarnishData, SimpleNumber};
+    use garnish_lang_simple_data::{NoCustom, SimpleGarnishData, SimpleNumber};
     use garnish_lang_traits::{GarnishData, GarnishDataType};
 
     #[test]
