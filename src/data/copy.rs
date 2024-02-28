@@ -76,7 +76,7 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
 
             to.end_list()
         }
-        GarnishDataType::Expression => todo!(),
+        GarnishDataType::Expression => todo!("GarnishDataType::Expression copying not implemented yet"),
         GarnishDataType::External => to.add_external(from.get_external(data_addr)?),
         GarnishDataType::True => to.add_true(),
         GarnishDataType::False => to.add_false(),
