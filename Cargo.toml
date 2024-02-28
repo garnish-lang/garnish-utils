@@ -15,3 +15,6 @@ readme = "./README.md"
 [dependencies]
 garnish_lang_compiler = { version = "0.0.3-alpha", path = "../garnish-core/compiler"}
 garnish_lang_traits = { version = "0.0.3-alpha", path = "../garnish-core/traits"}
+
+[dev-dependencies]
+garnish_lang_simple_data = { version = "0.0.3-alpha", path = "../garnish-core/data" }
