@@ -40,18 +40,42 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
             to.end_byte_list()
         }
         GarnishDataType::Symbol => to.add_symbol(from.get_symbol(data_addr)?),
-        GarnishDataType::Pair => from.get_pair(data_addr)
-            .and_then(|(left, right)| {
-                let to_left = copy_data_at_to_data(left, from , to)?;
+        GarnishDataType::Pair => from.get_pair(data_addr).and_then(|(left, right)| {
+            let to_left = copy_data_at_to_data(left, from, to)?;
+            let to_right = copy_data_at_to_data(right, from, to)?;
+            to.add_pair((to_left, to_right))
+        }),
+        GarnishDataType::Range => from.get_range(data_addr).and_then(|(left, right)| {
+            let to_left = copy_data_at_to_data(left, from, to)?;
+            let to_right = copy_data_at_to_data(right, from, to)?;
+            to.add_range(to_left, to_right)
+        }),
+        GarnishDataType::Concatenation => {
+            from.get_concatenation(data_addr).and_then(|(left, right)| {
+                let to_left = copy_data_at_to_data(left, from, to)?;
                 let to_right = copy_data_at_to_data(right, from, to)?;
-                to.add_pair((to_left, to_right))
-            }),
-        GarnishDataType::Range => from
-            .get_range(data_addr)
-            .and_then(|(s, e)| to.add_range(s, e)),
-        GarnishDataType::Concatenation => todo!(),
-        GarnishDataType::Slice => todo!(),
-        GarnishDataType::List => todo!(),
+                to.add_concatenation(to_left, to_right)
+            })
+        }
+        GarnishDataType::Slice => from.get_slice(data_addr).and_then(|(left, right)| {
+            let to_left = copy_data_at_to_data(left, from, to)?;
+            let to_right = copy_data_at_to_data(right, from, to)?;
+            to.add_slice(to_left, to_right)
+        }),
+        GarnishDataType::List => {
+            let len = from.get_list_len(data_addr)?;
+            let iter =
+                Data::make_number_iterator_range(Data::Number::zero(), Data::size_to_number(len));
+            to.start_list(len)?;
+            for i in iter {
+                let addr = from
+                    .get_list_item(data_addr, i)
+                    .and_then(|addr| copy_data_at_to_data(addr, from, to))?;
+                to.add_to_list(addr, false)?;
+            }
+
+            to.end_list()
+        }
         GarnishDataType::Expression => todo!(),
         GarnishDataType::External => to.add_external(from.get_external(data_addr)?),
         GarnishDataType::True => to.add_true(),
@@ -224,7 +248,9 @@ mod tests {
     #[test]
     fn copy_range() {
         let mut from = SimpleGarnishData::new();
-        let addr = from.add_range(10, 20).unwrap();
+        let s = from.add_number(SimpleNumber::Integer(1)).unwrap();
+        let e = from.add_number(SimpleNumber::Integer(5)).unwrap();
+        let addr = from.add_range(s, e).unwrap();
 
         let mut to = SimpleGarnishData::new();
         to.add_number(SimpleNumber::Integer(10)).unwrap();
@@ -233,8 +259,16 @@ mod tests {
 
         let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
 
-        assert_eq!(new_addr, 6);
-        assert_eq!(to.get_data().get(6).unwrap().as_range().unwrap(), (10, 20));
+        assert_eq!(new_addr, 8);
+        assert_eq!(to.get_data().get(8).unwrap().as_range().unwrap(), (6, 7));
+        assert_eq!(
+            to.get_data().get(6).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(1)
+        );
+        assert_eq!(
+            to.get_data().get(7).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(5)
+        );
     }
 
     #[test]
@@ -286,6 +320,131 @@ mod tests {
         assert_eq!(new_addr, 8);
         assert_eq!(to.get_data().get(8).unwrap().as_pair().unwrap(), (6, 7));
         assert_eq!(to.get_data().get(6).unwrap().as_symbol().unwrap(), 100);
-        assert_eq!(to.get_data().get(7).unwrap().as_number().unwrap(), SimpleNumber::Integer(200));
+        assert_eq!(
+            to.get_data().get(7).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(200)
+        );
+    }
+
+    #[test]
+    fn copy_concatenation() {
+        let mut from = SimpleGarnishData::new();
+        let d1 = from.add_symbol(100).unwrap();
+        let d2 = from.add_number(SimpleNumber::Integer(200)).unwrap();
+        let d3 = from.add_concatenation(d1, d2).unwrap();
+
+        let mut to = SimpleGarnishData::new();
+        to.add_number(SimpleNumber::Integer(10)).unwrap();
+        to.add_number(SimpleNumber::Integer(20)).unwrap();
+        to.add_number(SimpleNumber::Integer(30)).unwrap();
+
+        let new_addr = copy_data_at_to_data(d3, &from, &mut to).unwrap();
+
+        assert_eq!(new_addr, 8);
+        assert_eq!(
+            to.get_data().get(8).unwrap().as_concatenation().unwrap(),
+            (6, 7)
+        );
+        assert_eq!(to.get_data().get(6).unwrap().as_symbol().unwrap(), 100);
+        assert_eq!(
+            to.get_data().get(7).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(200)
+        );
+    }
+
+    #[test]
+    fn copy_list() {
+        let mut from = SimpleGarnishData::new();
+        from.start_list(3).unwrap();
+        from.add_number(SimpleNumber::Integer(100))
+            .and_then(|i| from.add_to_list(i, false))
+            .unwrap();
+        from.add_number(SimpleNumber::Integer(200))
+            .and_then(|i| from.add_to_list(i, false))
+            .unwrap();
+        from.add_number(SimpleNumber::Integer(300))
+            .and_then(|i| from.add_to_list(i, false))
+            .unwrap();
+        let d4 = from.end_list().unwrap();
+
+        let mut to = SimpleGarnishData::new();
+        to.add_number(SimpleNumber::Integer(10)).unwrap();
+        to.add_number(SimpleNumber::Integer(20)).unwrap();
+        to.add_number(SimpleNumber::Integer(30)).unwrap();
+
+        let new_addr = copy_data_at_to_data(d4, &from, &mut to).unwrap();
+
+        assert_eq!(new_addr, 9);
+        assert_eq!(
+            to.get_data().get(9).unwrap().as_list().unwrap(),
+            (vec![6, 7, 8], vec![])
+        );
+        assert_eq!(
+            to.get_data().get(6).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(100)
+        );
+        assert_eq!(
+            to.get_data().get(7).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(200)
+        );
+        assert_eq!(
+            to.get_data().get(8).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(300)
+        );
+    }
+
+    #[test]
+    fn copy_slice() {
+        let mut from = SimpleGarnishData::new();
+        let d1 = from.add_number(SimpleNumber::Integer(1)).unwrap();
+        let d2 = from.add_number(SimpleNumber::Integer(3)).unwrap();
+        let d3 = from.add_range(d1, d2).unwrap();
+        from.start_list(3).unwrap();
+        from.add_number(SimpleNumber::Integer(100))
+            .and_then(|i| from.add_to_list(i, false))
+            .unwrap();
+        from.add_number(SimpleNumber::Integer(200))
+            .and_then(|i| from.add_to_list(i, false))
+            .unwrap();
+        from.add_number(SimpleNumber::Integer(300))
+            .and_then(|i| from.add_to_list(i, false))
+            .unwrap();
+        let d4 = from.end_list().unwrap();
+        let d5 = from.add_slice(d4, d3).unwrap();
+
+        let mut to = SimpleGarnishData::new();
+        to.add_number(SimpleNumber::Integer(10)).unwrap();
+        to.add_number(SimpleNumber::Integer(20)).unwrap();
+        to.add_number(SimpleNumber::Integer(30)).unwrap();
+
+        let new_addr = copy_data_at_to_data(d5, &from, &mut to).unwrap();
+
+        assert_eq!(new_addr, 13);
+        assert_eq!(to.get_data().get(13).unwrap().as_slice().unwrap(), (9, 12));
+        assert_eq!(to.get_data().get(12).unwrap().as_range().unwrap(), (10, 11));
+        assert_eq!(
+            to.get_data().get(10).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(1)
+        );
+        assert_eq!(
+            to.get_data().get(11).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(3)
+        );
+        assert_eq!(
+            to.get_data().get(9).unwrap().as_list().unwrap(),
+            (vec![6, 7, 8], vec![])
+        );
+        assert_eq!(
+            to.get_data().get(6).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(100)
+        );
+        assert_eq!(
+            to.get_data().get(7).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(200)
+        );
+        assert_eq!(
+            to.get_data().get(8).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(300)
+        );
     }
 }
