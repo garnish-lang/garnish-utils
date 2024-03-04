@@ -71,12 +71,24 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
                 let addr = from
                     .get_list_item(data_addr, i)
                     .and_then(|addr| copy_data_at_to_data(addr, from, to))?;
-                to.add_to_list(addr, false)?;
+                let is_association = match to.get_data_type(addr)? {
+                    GarnishDataType::Pair => {
+                        let (left, _right) = to.get_pair(addr)?;
+                        match to.get_data_type(left)? {
+                            GarnishDataType::Symbol => true,
+                            _ => false
+                        }
+                    }
+                    _ => false
+                };
+                to.add_to_list(addr, is_association)?;
             }
 
             to.end_list()
         }
-        GarnishDataType::Expression => todo!("GarnishDataType::Expression copying not implemented yet"),
+        GarnishDataType::Expression => {
+            todo!("GarnishDataType::Expression copying not implemented yet")
+        }
         GarnishDataType::External => to.add_external(from.get_external(data_addr)?),
         GarnishDataType::True => to.add_true(),
         GarnishDataType::False => to.add_false(),
@@ -390,6 +402,40 @@ mod tests {
         assert_eq!(
             to.get_data().get(8).unwrap().as_number().unwrap(),
             SimpleNumber::Integer(300)
+        );
+    }
+
+    #[test]
+    fn copy_list_with_associations() {
+        let mut from = SimpleGarnishData::new();
+        from.start_list(3).unwrap();
+
+        let left = from.add_symbol(200).unwrap();
+        let right = from.add_number(SimpleNumber::Integer(100)).unwrap();
+        from.add_pair((left, right))
+            .and_then(|i| from.add_to_list(i, false))
+            .unwrap();
+        let d4 = from.end_list().unwrap();
+
+        let mut to = SimpleGarnishData::new();
+        to.add_number(SimpleNumber::Integer(10)).unwrap();
+        to.add_number(SimpleNumber::Integer(20)).unwrap();
+        to.add_number(SimpleNumber::Integer(30)).unwrap();
+
+        let new_addr = copy_data_at_to_data(d4, &from, &mut to).unwrap();
+
+        assert_eq!(new_addr, 9);
+        assert_eq!(
+            to.get_data().get(9).unwrap().as_list().unwrap(),
+            (vec![8], vec![8])
+        );
+        assert_eq!(
+            to.get_data().get(7).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(100)
+        );
+        assert_eq!(
+            to.get_data().get(6).unwrap().as_symbol().unwrap(),
+            200
         );
     }
 
