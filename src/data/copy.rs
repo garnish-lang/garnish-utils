@@ -107,25 +107,25 @@ fn clone_data_with_handlers_internal<Data: GarnishData>(
         }
         GarnishDataType::Symbol => to.add_symbol(from.get_symbol(data_addr.clone())?),
         GarnishDataType::Pair => from.get_pair(data_addr.clone()).and_then(|(left, right)| {
-            let to_left = clone_data(left, from, to)?;
-            let to_right = clone_data(right, from, to)?;
+            let to_left = clone_data_with_handlers_internal(left, from, to, custom_handler, invalid_handler)?;
+            let to_right = clone_data_with_handlers_internal(right, from, to, custom_handler, invalid_handler)?;
             to.add_pair((to_left, to_right))
         }),
         GarnishDataType::Range => from.get_range(data_addr.clone()).and_then(|(left, right)| {
-            let to_left = clone_data(left, from, to)?;
-            let to_right = clone_data(right, from, to)?;
+            let to_left = clone_data_with_handlers_internal(left, from, to, custom_handler, invalid_handler)?;
+            let to_right = clone_data_with_handlers_internal(right, from, to, custom_handler, invalid_handler)?;
             to.add_range(to_left, to_right)
         }),
         GarnishDataType::Concatenation => {
             from.get_concatenation(data_addr.clone()).and_then(|(left, right)| {
-                let to_left = clone_data(left, from, to)?;
-                let to_right = clone_data(right, from, to)?;
+                let to_left = clone_data_with_handlers_internal(left, from, to, custom_handler, invalid_handler)?;
+                let to_right = clone_data_with_handlers_internal(right, from, to, custom_handler, invalid_handler)?;
                 to.add_concatenation(to_left, to_right)
             })
         }
         GarnishDataType::Slice => from.get_slice(data_addr.clone()).and_then(|(left, right)| {
-            let to_left = clone_data(left, from, to)?;
-            let to_right = clone_data(right, from, to)?;
+            let to_left = clone_data_with_handlers_internal(left, from, to, custom_handler, invalid_handler)?;
+            let to_right = clone_data_with_handlers_internal(right, from, to, custom_handler, invalid_handler)?;
             to.add_slice(to_left, to_right)
         }),
         GarnishDataType::List => {
@@ -136,7 +136,7 @@ fn clone_data_with_handlers_internal<Data: GarnishData>(
             for i in iter {
                 let addr = from
                     .get_list_item(data_addr.clone(), i)
-                    .and_then(|addr| clone_data(addr, from, to))?;
+                    .and_then(|addr| clone_data_with_handlers_internal(addr, from, to, custom_handler, invalid_handler))?;
                 let is_association = match to.get_data_type(addr.clone())? {
                     GarnishDataType::Pair => {
                         let (left, _right) = to.get_pair(addr.clone())?;
