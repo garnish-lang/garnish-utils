@@ -86,9 +86,7 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
 
             to.end_list()
         }
-        GarnishDataType::Expression => {
-            todo!("GarnishDataType::Expression copying not implemented yet")
-        }
+        GarnishDataType::Expression => to.add_expression(from.get_expression(data_addr.clone())?),
         GarnishDataType::External => to.add_external(from.get_external(data_addr.clone())?),
         GarnishDataType::True => to.add_true(),
         GarnishDataType::False => to.add_false(),
@@ -297,6 +295,22 @@ mod tests {
 
         assert_eq!(new_addr, 6);
         assert_eq!(to.get_data().get(6).unwrap().as_symbol().unwrap(), 100);
+    }
+
+    #[test]
+    fn copy_expression() {
+        let mut from = SimpleGarnishData::new();
+        let addr = from.add_expression(100).unwrap();
+
+        let mut to = SimpleGarnishData::new();
+        to.add_number(SimpleNumber::Integer(10)).unwrap();
+        to.add_number(SimpleNumber::Integer(20)).unwrap();
+        to.add_number(SimpleNumber::Integer(30)).unwrap();
+
+        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+
+        assert_eq!(new_addr, 6);
+        assert_eq!(to.get_data().get(6).unwrap().as_expression().unwrap(), 100);
     }
 
     #[test]
