@@ -132,7 +132,8 @@ fn clone_data_with_handlers_internal<Data: GarnishData>(
             let len = from.get_list_len(data_addr.clone())?;
             let iter =
                 Data::make_number_iterator_range(Data::Number::zero(), Data::size_to_number(len.clone()));
-            to.start_list(len.clone())?;
+
+            let mut items = vec![];
             for i in iter {
                 let addr = from
                     .get_list_item(data_addr.clone(), i)
@@ -147,9 +148,13 @@ fn clone_data_with_handlers_internal<Data: GarnishData>(
                     }
                     _ => false
                 };
-                to.add_to_list(addr, is_association)?;
+                items.push((addr, is_association));
             }
 
+            to.start_list(len.clone())?;
+            for (addr, is_association) in items {
+                to.add_to_list(addr, is_association)?;
+            }
             to.end_list()
         }
         GarnishDataType::Expression => to.add_expression(from.get_expression(data_addr.clone())?),
@@ -162,7 +167,7 @@ fn clone_data_with_handlers_internal<Data: GarnishData>(
 #[cfg(test)]
 mod tests {
     use crate::data::{clone_data, clone_data_with_custom_handler, clone_data_with_handlers, clone_data_with_invalid_handler};
-    use garnish_lang_simple_data::{SimpleGarnishData, SimpleNumber};
+    use garnish_lang_simple_data::{SimpleData, SimpleGarnishData, SimpleNumber};
     use garnish_lang_traits::{GarnishData, GarnishDataType};
     use crate::data::copy::test_data_impl::TestData;
 
@@ -579,6 +584,84 @@ mod tests {
         assert_eq!(
             to.get_data().get(8).unwrap().as_number().unwrap(),
             SimpleNumber::Integer(300)
+        );
+    }
+
+    #[test]
+    fn copy_nested_list() {
+        let mut from = SimpleGarnishData::new();
+        from.start_list(3).unwrap();
+        from.add_number(SimpleNumber::Integer(100)) // 6
+            .and_then(|i| from.add_to_list(i, false))
+            .unwrap();
+        from.add_number(SimpleNumber::Integer(200)) // 7
+            .and_then(|i| from.add_to_list(i, false))
+            .unwrap();
+        from.add_number(SimpleNumber::Integer(300)) // 8
+            .and_then(|i| from.add_to_list(i, false))
+            .unwrap();
+        let d4 = from.end_list().unwrap();
+
+        from.start_list(3).unwrap(); // 9
+
+        from.add_number(SimpleNumber::Integer(400)) // 10
+            .and_then(|i| from.add_to_list(i, false))
+            .unwrap();
+        from.add_number(SimpleNumber::Integer(500)) // 11
+            .and_then(|i| from.add_to_list(i, false))
+            .unwrap();
+        from.add_number(SimpleNumber::Integer(600)) // 12
+            .and_then(|i| from.add_to_list(i, false))
+            .unwrap();
+
+        let d5 = from.end_list().unwrap(); // 13
+
+        let d6 = from.get_data_len(); // 14
+        from.get_data_mut().push(SimpleData::List(vec![d4, d5], vec![]));
+
+        let mut to = SimpleGarnishData::new();
+        to.add_number(SimpleNumber::Integer(10)).unwrap();
+        to.add_number(SimpleNumber::Integer(20)).unwrap();
+        to.add_number(SimpleNumber::Integer(30)).unwrap();
+
+        let new_addr = clone_data(d6, &from, &mut to).unwrap();
+
+        assert_eq!(new_addr, 14);
+        assert_eq!(
+            to.get_data().get(new_addr).unwrap().as_list().unwrap(),
+            (vec![9, 13], vec![])
+        );
+        assert_eq!(
+            to.get_data().get(9).unwrap().as_list().unwrap(),
+            (vec![6, 7, 8], vec![])
+        );
+        assert_eq!(
+            to.get_data().get(13).unwrap().as_list().unwrap(),
+            (vec![10, 11, 12], vec![])
+        );
+        assert_eq!(
+            to.get_data().get(6).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(100)
+        );
+        assert_eq!(
+            to.get_data().get(7).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(200)
+        );
+        assert_eq!(
+            to.get_data().get(8).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(300)
+        );
+        assert_eq!(
+            to.get_data().get(10).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(400)
+        );
+        assert_eq!(
+            to.get_data().get(11).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(500)
+        );
+        assert_eq!(
+            to.get_data().get(12).unwrap().as_number().unwrap(),
+            SimpleNumber::Integer(600)
         );
     }
 
