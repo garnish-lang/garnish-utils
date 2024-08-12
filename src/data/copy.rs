@@ -1,16 +1,46 @@
 use garnish_lang_traits::{GarnishData, GarnishDataType, TypeConstants};
 
-pub fn copy_data_at_to_data<Data: GarnishData>(
+pub type CloneHandler<Data> = fn(<Data as GarnishData>::Size, &Data, &mut Data) -> Result<<Data as GarnishData>::Size, <Data as GarnishData>::Error>;
+
+pub fn clone_data<Data: GarnishData>(
     data_addr: Data::Size,
     from: &Data,
     to: &mut Data,
 ) -> Result<Data::Size, Data::Error> {
+    clone_data_with_handlers(
+        data_addr,
+        from,
+        to,
+        None,
+    )
+}
+
+pub fn clone_data_with_custom_handler<Data: GarnishData>(
+    data_addr: Data::Size,
+    from: &Data,
+    to: &mut Data,
+    custom_handler: CloneHandler<Data>,
+) -> Result<Data::Size, Data::Error> {
+    clone_data_with_handlers(
+        data_addr,
+        from,
+        to,
+        Some(custom_handler),
+    )
+}
+
+pub fn clone_data_with_handlers<Data: GarnishData>(
+    data_addr: Data::Size,
+    from: &Data,
+    to: &mut Data,
+    custom_handler: Option<CloneHandler<Data>>,
+    // invalid_handler: Option<CloneHandler<Data>>, // to be implemented
+) -> Result<Data::Size, Data::Error> {
     match from.get_data_type(data_addr.clone())? {
-        GarnishDataType::Invalid => {
-            unimplemented!("GarnishDataType::Invalid not supported to copy between data objects.")
-        }
-        GarnishDataType::Custom => {
-            unimplemented!("GarnishDataType::Custom not supported to copy between data objects.")
+        GarnishDataType::Invalid => to.add_unit(), // will add custom handler
+        GarnishDataType::Custom => match custom_handler {
+            None => to.add_unit(),
+            Some(handler) => handler(data_addr.clone(), from, to)
         }
         GarnishDataType::Unit => to.add_unit(),
         GarnishDataType::Number => to.add_number(from.get_number(data_addr.clone())?),
@@ -41,25 +71,25 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
         }
         GarnishDataType::Symbol => to.add_symbol(from.get_symbol(data_addr.clone())?),
         GarnishDataType::Pair => from.get_pair(data_addr.clone()).and_then(|(left, right)| {
-            let to_left = copy_data_at_to_data(left, from, to)?;
-            let to_right = copy_data_at_to_data(right, from, to)?;
+            let to_left = clone_data(left, from, to)?;
+            let to_right = clone_data(right, from, to)?;
             to.add_pair((to_left, to_right))
         }),
         GarnishDataType::Range => from.get_range(data_addr.clone()).and_then(|(left, right)| {
-            let to_left = copy_data_at_to_data(left, from, to)?;
-            let to_right = copy_data_at_to_data(right, from, to)?;
+            let to_left = clone_data(left, from, to)?;
+            let to_right = clone_data(right, from, to)?;
             to.add_range(to_left, to_right)
         }),
         GarnishDataType::Concatenation => {
             from.get_concatenation(data_addr.clone()).and_then(|(left, right)| {
-                let to_left = copy_data_at_to_data(left, from, to)?;
-                let to_right = copy_data_at_to_data(right, from, to)?;
+                let to_left = clone_data(left, from, to)?;
+                let to_right = clone_data(right, from, to)?;
                 to.add_concatenation(to_left, to_right)
             })
         }
         GarnishDataType::Slice => from.get_slice(data_addr.clone()).and_then(|(left, right)| {
-            let to_left = copy_data_at_to_data(left, from, to)?;
-            let to_right = copy_data_at_to_data(right, from, to)?;
+            let to_left = clone_data(left, from, to)?;
+            let to_right = clone_data(right, from, to)?;
             to.add_slice(to_left, to_right)
         }),
         GarnishDataType::List => {
@@ -70,7 +100,7 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
             for i in iter {
                 let addr = from
                     .get_list_item(data_addr.clone(), i)
-                    .and_then(|addr| copy_data_at_to_data(addr, from, to))?;
+                    .and_then(|addr| clone_data(addr, from, to))?;
                 let is_association = match to.get_data_type(addr.clone())? {
                     GarnishDataType::Pair => {
                         let (left, _right) = to.get_pair(addr.clone())?;
@@ -95,7 +125,7 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
 
 #[cfg(test)]
 mod tests {
-    use crate::data::copy_data_at_to_data;
+    use crate::data::{clone_data, clone_data_with_custom_handler};
     use garnish_lang_simple_data::{SimpleGarnishData, SimpleNumber};
     use garnish_lang_traits::{GarnishData, GarnishDataType};
 
@@ -109,7 +139,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 6);
         assert_eq!(
@@ -128,7 +158,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 0);
         assert!(to.get_data().get(0).unwrap().is_unit());
@@ -144,7 +174,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 2);
         assert!(to.get_data().get(2).unwrap().is_true());
@@ -160,7 +190,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 1);
         assert!(to.get_data().get(1).unwrap().is_false());
@@ -176,7 +206,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 6);
         assert_eq!(
@@ -195,7 +225,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 6);
         assert_eq!(to.get_data().get(6).unwrap().as_char().unwrap(), 'a');
@@ -211,7 +241,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 6);
         assert_eq!(
@@ -230,7 +260,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 6);
         assert_eq!(to.get_data().get(6).unwrap().as_byte().unwrap(), 10);
@@ -246,7 +276,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 6);
         assert_eq!(
@@ -267,7 +297,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 8);
         assert_eq!(to.get_data().get(8).unwrap().as_range().unwrap(), (6, 7));
@@ -291,7 +321,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 6);
         assert_eq!(to.get_data().get(6).unwrap().as_symbol().unwrap(), 100);
@@ -307,7 +337,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 6);
         assert_eq!(to.get_data().get(6).unwrap().as_expression().unwrap(), 100);
@@ -323,10 +353,52 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(addr, &from, &mut to).unwrap();
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 6);
         assert_eq!(to.get_data().get(6).unwrap().as_external().unwrap(), 100);
+    }
+
+
+    #[derive(Copy, Clone, PartialOrd, PartialEq, Eq, Debug, Hash)]
+    struct CustomData {
+        num: usize,
+    }
+
+    #[test]
+    fn copy_custom_no_handler() {
+        let mut from = SimpleGarnishData::<CustomData>::new_custom();
+        let addr = from.add_custom(CustomData { num: 12345 }).unwrap();
+
+        let mut to = SimpleGarnishData::<CustomData>::new_custom();
+        to.add_number(SimpleNumber::Integer(10)).unwrap();
+        to.add_number(SimpleNumber::Integer(20)).unwrap();
+        to.add_number(SimpleNumber::Integer(30)).unwrap();
+
+        let new_addr = clone_data(addr, &from, &mut to).unwrap();
+
+        assert_eq!(new_addr, 0);
+        assert!(to.get_data().get(0).unwrap().is_unit());
+    }
+
+    #[test]
+    fn copy_custom_handler() {
+        let mut from = SimpleGarnishData::<CustomData>::new_custom();
+        let addr = from.add_custom(CustomData { num: 12345 }).unwrap();
+
+        let mut to = SimpleGarnishData::<CustomData>::new_custom();
+        to.add_number(SimpleNumber::Integer(10)).unwrap();
+        to.add_number(SimpleNumber::Integer(20)).unwrap();
+        to.add_number(SimpleNumber::Integer(30)).unwrap();
+
+        let new_addr = clone_data_with_custom_handler(
+            addr, &from, &mut to,
+            |_addr, _from, to| {
+                to.add_number(SimpleNumber::Integer(12345))
+            }).unwrap();
+
+        assert_eq!(new_addr, 6);
+        assert_eq!(to.get_data().get(6).unwrap().as_number().unwrap(), SimpleNumber::Integer(12345));
     }
 
     #[test]
@@ -341,7 +413,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(d3, &from, &mut to).unwrap();
+        let new_addr = clone_data(d3, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 8);
         assert_eq!(to.get_data().get(8).unwrap().as_pair().unwrap(), (6, 7));
@@ -364,7 +436,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(d3, &from, &mut to).unwrap();
+        let new_addr = clone_data(d3, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 8);
         assert_eq!(
@@ -398,7 +470,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(d4, &from, &mut to).unwrap();
+        let new_addr = clone_data(d4, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 9);
         assert_eq!(
@@ -436,7 +508,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(d4, &from, &mut to).unwrap();
+        let new_addr = clone_data(d4, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 9);
         assert_eq!(
@@ -477,7 +549,7 @@ mod tests {
         to.add_number(SimpleNumber::Integer(20)).unwrap();
         to.add_number(SimpleNumber::Integer(30)).unwrap();
 
-        let new_addr = copy_data_at_to_data(d5, &from, &mut to).unwrap();
+        let new_addr = clone_data(d5, &from, &mut to).unwrap();
 
         assert_eq!(new_addr, 13);
         assert_eq!(to.get_data().get(13).unwrap().as_slice().unwrap(), (9, 12));
