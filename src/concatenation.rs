@@ -15,22 +15,22 @@ pub fn iterate_concatentation<
     stack.push(current);
 
     while let Some(addr) = stack.pop() {
-        match data.get_data_type(addr)? {
+        match data.get_data_type(addr.clone())? {
             GarnishDataType::Concatenation => {
-                let (current, next) = data.get_concatenation(addr)?;
+                let (current, next) = data.get_concatenation(addr.clone())?;
                 stack.push(next);
                 stack.push(current);
             }
             GarnishDataType::List => {
-                let list_iter = data.get_list_items_iter(addr);
+                let list_iter = data.get_list_items_iter(addr.clone());
 
                 for i in list_iter {
-                    let item = data.get_list_item(addr, i)?;
+                    let item = data.get_list_item(addr.clone(), i)?;
 
                     item_fn(item);
                 }
             }
-            _ => item_fn(addr),
+            _ => item_fn(addr.clone()),
         }
     }
 

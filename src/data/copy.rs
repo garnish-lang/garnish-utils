@@ -5,7 +5,7 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
     from: &Data,
     to: &mut Data,
 ) -> Result<Data::Size, Data::Error> {
-    match from.get_data_type(data_addr)? {
+    match from.get_data_type(data_addr.clone())? {
         GarnishDataType::Invalid => {
             unimplemented!("GarnishDataType::Invalid not supported to copy between data objects.")
         }
@@ -13,67 +13,67 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
             unimplemented!("GarnishDataType::Custom not supported to copy between data objects.")
         }
         GarnishDataType::Unit => to.add_unit(),
-        GarnishDataType::Number => to.add_number(from.get_number(data_addr)?),
-        GarnishDataType::Type => to.add_type(from.get_type(data_addr)?),
-        GarnishDataType::Char => to.add_char(from.get_char(data_addr)?),
+        GarnishDataType::Number => to.add_number(from.get_number(data_addr.clone())?),
+        GarnishDataType::Type => to.add_type(from.get_type(data_addr.clone())?),
+        GarnishDataType::Char => to.add_char(from.get_char(data_addr.clone())?),
         GarnishDataType::CharList => {
-            let len = from.get_char_list_len(data_addr)?;
+            let len = from.get_char_list_len(data_addr.clone())?;
             let iter =
                 Data::make_number_iterator_range(Data::Number::zero(), Data::size_to_number(len));
             to.start_char_list()?;
             for i in iter {
-                to.add_to_char_list(from.get_char_list_item(data_addr, i)?)?;
+                to.add_to_char_list(from.get_char_list_item(data_addr.clone(), i)?)?;
             }
 
             to.end_char_list()
         }
-        GarnishDataType::Byte => to.add_byte(from.get_byte(data_addr)?),
+        GarnishDataType::Byte => to.add_byte(from.get_byte(data_addr.clone())?),
         GarnishDataType::ByteList => {
-            let len = from.get_byte_list_len(data_addr)?;
+            let len = from.get_byte_list_len(data_addr.clone())?;
             let iter =
                 Data::make_number_iterator_range(Data::Number::zero(), Data::size_to_number(len));
             to.start_byte_list()?;
             for i in iter {
-                to.add_to_byte_list(from.get_byte_list_item(data_addr, i)?)?;
+                to.add_to_byte_list(from.get_byte_list_item(data_addr.clone(), i)?)?;
             }
 
             to.end_byte_list()
         }
-        GarnishDataType::Symbol => to.add_symbol(from.get_symbol(data_addr)?),
-        GarnishDataType::Pair => from.get_pair(data_addr).and_then(|(left, right)| {
+        GarnishDataType::Symbol => to.add_symbol(from.get_symbol(data_addr.clone())?),
+        GarnishDataType::Pair => from.get_pair(data_addr.clone()).and_then(|(left, right)| {
             let to_left = copy_data_at_to_data(left, from, to)?;
             let to_right = copy_data_at_to_data(right, from, to)?;
             to.add_pair((to_left, to_right))
         }),
-        GarnishDataType::Range => from.get_range(data_addr).and_then(|(left, right)| {
+        GarnishDataType::Range => from.get_range(data_addr.clone()).and_then(|(left, right)| {
             let to_left = copy_data_at_to_data(left, from, to)?;
             let to_right = copy_data_at_to_data(right, from, to)?;
             to.add_range(to_left, to_right)
         }),
         GarnishDataType::Concatenation => {
-            from.get_concatenation(data_addr).and_then(|(left, right)| {
+            from.get_concatenation(data_addr.clone()).and_then(|(left, right)| {
                 let to_left = copy_data_at_to_data(left, from, to)?;
                 let to_right = copy_data_at_to_data(right, from, to)?;
                 to.add_concatenation(to_left, to_right)
             })
         }
-        GarnishDataType::Slice => from.get_slice(data_addr).and_then(|(left, right)| {
+        GarnishDataType::Slice => from.get_slice(data_addr.clone()).and_then(|(left, right)| {
             let to_left = copy_data_at_to_data(left, from, to)?;
             let to_right = copy_data_at_to_data(right, from, to)?;
             to.add_slice(to_left, to_right)
         }),
         GarnishDataType::List => {
-            let len = from.get_list_len(data_addr)?;
+            let len = from.get_list_len(data_addr.clone())?;
             let iter =
-                Data::make_number_iterator_range(Data::Number::zero(), Data::size_to_number(len));
-            to.start_list(len)?;
+                Data::make_number_iterator_range(Data::Number::zero(), Data::size_to_number(len.clone()));
+            to.start_list(len.clone())?;
             for i in iter {
                 let addr = from
-                    .get_list_item(data_addr, i)
+                    .get_list_item(data_addr.clone(), i)
                     .and_then(|addr| copy_data_at_to_data(addr, from, to))?;
-                let is_association = match to.get_data_type(addr)? {
+                let is_association = match to.get_data_type(addr.clone())? {
                     GarnishDataType::Pair => {
-                        let (left, _right) = to.get_pair(addr)?;
+                        let (left, _right) = to.get_pair(addr.clone())?;
                         match to.get_data_type(left)? {
                             GarnishDataType::Symbol => true,
                             _ => false
@@ -89,7 +89,7 @@ pub fn copy_data_at_to_data<Data: GarnishData>(
         GarnishDataType::Expression => {
             todo!("GarnishDataType::Expression copying not implemented yet")
         }
-        GarnishDataType::External => to.add_external(from.get_external(data_addr)?),
+        GarnishDataType::External => to.add_external(from.get_external(data_addr.clone())?),
         GarnishDataType::True => to.add_true(),
         GarnishDataType::False => to.add_false(),
     }
